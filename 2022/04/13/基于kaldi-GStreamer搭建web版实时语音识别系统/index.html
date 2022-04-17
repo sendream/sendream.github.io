@@ -1,0 +1,626 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/favicon.png">
+  <link rel="icon" href="/img/favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="John Doe">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="本文将会主要介绍怎么结合kaldi语音识别工具和两个GStreamer插件件(gst­-kaldi­-nnet2­-online、kaldi­-gstreamer-server)以及dictate.js来搭建线上的实时语音识别系统。 本人配置环境：腾讯云服务器、ubuntu 18.04。 一.kaldiKaldi是当前最流行的开源语音识别工具(Toolkit)，它使用WFST来实现解码算法。Kal">
+<meta property="og:type" content="article">
+<meta property="og:title" content="基于kaldi+GStreamer搭建web版实时语音识别系统">
+<meta property="og:url" content="http://example.com/2022/04/13/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/index.html">
+<meta property="og:site_name" content="李森严的博客">
+<meta property="og:description" content="本文将会主要介绍怎么结合kaldi语音识别工具和两个GStreamer插件件(gst­-kaldi­-nnet2­-online、kaldi­-gstreamer-server)以及dictate.js来搭建线上的实时语音识别系统。 本人配置环境：腾讯云服务器、ubuntu 18.04。 一.kaldiKaldi是当前最流行的开源语音识别工具(Toolkit)，它使用WFST来实现解码算法。Kal">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/shouye.png">
+<meta property="article:published_time" content="2022-04-13T08:36:52.000Z">
+<meta property="article:modified_time" content="2022-04-13T08:54:30.546Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="kaldi">
+<meta property="article:tag" content="GStreamer">
+<meta property="article:tag" content="语音识别系统">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="http://example.com/images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/shouye.png">
+  
+  
+  <title>基于kaldi+GStreamer搭建web版实时语音识别系统 - 李森严的博客</title>
+
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4/dist/css/bootstrap.min.css" />
+
+
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@4/github-markdown.min.css" />
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hint.css@2/hint.min.css" />
+
+  
+    
+    
+      
+      <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@10/styles/github-gist.min.css" />
+    
+  
+
+  
+    <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3/dist/jquery.fancybox.min.css" />
+  
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_ba1fz6golrf.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+<!-- 自定义样式保持在最底部 -->
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    var CONFIG = {"hostname":"example.com","root":"/","version":"1.8.14","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"right","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"copy_btn":true,"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"baidu":null,"google":null,"gtag":null,"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":"sJPjYojliLGzfLXyQBqHthU2-gzGzoHsz","app_key":"4t0n7YVksQWvQmy0vANUXm1C","server_url":"https://sjpjyojl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+<meta name="generator" content="Hexo 6.1.0"></head>
+
+
+<body>
+  <header style="height: 70vh;">
+    <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>lsyan&#39;s blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                首页
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                归档
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                分类
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                标签
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                关于
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              &nbsp;<i class="iconfont icon-search"></i>&nbsp;
+            </a>
+          </li>
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">&nbsp;<i
+                class="iconfont icon-dark" id="color-toggle-icon"></i>&nbsp;</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+    <div class="banner" id="banner" parallax=true
+         style="background: url('/../images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/20220413165047.jpg') no-repeat center center;
+           background-size: cover;">
+      <div class="full-bg-img">
+        <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+          <div class="page-header text-center fade-in-up">
+            <span class="h2" id="subtitle" title="基于kaldi+GStreamer搭建web版实时语音识别系统">
+              
+            </span>
+
+            
+              <div class="mt-3">
+  
+  
+    <span class="post-meta">
+      <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+      <time datetime="2022-04-13 16:36" pubdate>
+        2022年4月13日 下午
+      </time>
+    </span>
+  
+</div>
+
+<div class="mt-1">
+  
+    <span class="post-meta mr-2">
+      <i class="iconfont icon-chart"></i>
+      17k 字
+    </span>
+  
+
+  
+    <span class="post-meta mr-2">
+      <i class="iconfont icon-clock-fill"></i>
+      
+      
+      142 分钟
+    </span>
+  
+
+  
+  
+</div>
+
+            
+          </div>
+
+          
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="d-none d-lg-block col-lg-2"></div>
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div class="py-5" id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">基于kaldi+GStreamer搭建web版实时语音识别系统</h1>
+            
+            <div class="markdown-body">
+              <p>本文将会主要介绍怎么结合kaldi语音识别工具和两个GStreamer插件件(<a target="_blank" rel="noopener" href="https://github.com/alumae/gst-kaldi-nnet2-online">gst­-kaldi­-nnet2­-online</a>、<a target="_blank" rel="noopener" href="https://github.com/alumae/kaldi-gstreamer-server">kaldi­-gstreamer-server</a>)以及<a target="_blank" rel="noopener" href="https://github.com/sendream/dictate.js">dictate.js</a>来搭建线上的实时语音识别系统。</p>
+<p>本人配置环境：腾讯云服务器、ubuntu 18.04。</p>
+<h2 id="一-kaldi"><a href="#一-kaldi" class="headerlink" title="一.kaldi"></a>一.kaldi</h2><p>Kaldi是当前最流行的开源语音识别工具(Toolkit)，它使用WFST来实现解码算法。Kaldi的主要代码是C++编写，在此之上使用bash和python脚本做了一些工具。而实时识别系统的好坏取决于语音识别的性能，语音识别包含特征提取、声学模型、语言模型、解码器等部分。Kaldi工具箱集成了几乎所有搭建语音识别器需要用到的工具。因不涉及GPU的使用，因此不用配置CUDA。kaldi的训练我将再另外一个专栏进行介绍。</p>
+<h4 id="1-kaldi安装"><a href="#1-kaldi安装" class="headerlink" title="1.kaldi安装"></a><strong>1.kaldi安装</strong></h4><p>1.下载kaldi最新文件</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><div class="code-wrapper"><pre><span class="line">1</span><br></pre></div></td><td class="code"><pre><code class="hljs plain">git clone https://github.com/kaldi-asr/kaldi.git<br></code></pre></td></tr></table></figure>
+<p>2.安装kaldi，首先进入tools目录下，检查依赖性，没有的包按照指令安装，详细过程参见tools目录下的INSTALL文件。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs plain">cd kaldi-trunk/tools<br>cat INSTALL<br>#查看安装教程<br>extras/check_dependencies.sh<br>#检查依赖性，没有的包按照指令安装<br>make  or  make -j 4(多线程加快进度）<br></code></pre></td></tr></table></figure>
+<p>3.编译kaldi源文件，详细过程参见src目录下的INSTALL文件。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs plain">cd ../src<br>cat INSTALL<br>#查看安装教程<br>./configure --shared<br>make depend -8<br>make -8<br></code></pre></td></tr></table></figure>
+<p>安装过程遇上问题，需要停止安装并按照提示检查错误并解决错误，<a target="_blank" rel="noopener" href="http://kaldi-asr.org/doc/build_setup.html">此处</a>为kaldi官方文档的编译过程。（我遇到的问题GCC版本太低）<br>4.检查是否安装成功</p>
+<p>跑一个例子yesno</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs plain">cd ../egs/yesno/s5<br>./run.sh<br></code></pre></td></tr></table></figure>
+<p>输出显示<br><img src="/../images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/image%20(6).png" srcset="/img/loading.gif" lazyload alt="image (6)"></p>
+<p>表示安装成功</p>
+<h4 id="2-模型的训练"><a href="#2-模型的训练" class="headerlink" title="2.模型的训练"></a>2.模型的训练</h4><p>模型训练将在kaldi专栏中进行介绍。本文将基于nnet3模型搭建实时语音识别系统，gst-kaldi-nnet-online插件需要的文件包括：final.mdl，frame_subsampling_factor，HCLG.fst，phones.txt，tree，words.txt；conf文件包括：ivector_extractor.conf，mfcc.conf，  online_cmvn.conf，online.conf，pitch.conf（如果使用音高），splice.conf；ivector_extractor文件包括：final.dubm，final.ie，final.mat，global_cmvn.stats，online_cmvn.conf，splice_opts。有了上面这些文件，我们就可以基于gst-kaldi-nnet-online插件搭建实时语音识别了，再结合kaldi­-gstreamer­-server和<a target="_blank" rel="noopener" href="https://github.com/sendream/dictate.js">dictate.js</a>就可以实现web端语音识别系统。</p>
+<h2 id="二-GStreamer插件"><a href="#二-GStreamer插件" class="headerlink" title="二.GStreamer插件"></a>二.GStreamer插件</h2><h4 id="1-安装gst-kaldi-nnet-online插件"><a href="#1-安装gst-kaldi-nnet-online插件" class="headerlink" title="1.安装gst-kaldi-nnet-online插件"></a>1.安装gst-kaldi-nnet-online插件</h4><p>首先安装gstreamer-1.0：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">sudo apt-get install gstreamer1.0-plugins-bad  gstreamer1.0-plugins-base gstreamer1.0-plugins-good  gstreamer1.0-pulseaudio  gstreamer1.0-plugins-ugly  gstreamer1.0-tools libgstreamer1.0-dev<br></code></pre></td></tr></table></figure>
+<p>Ubuntu14.04版本以下，在执行上述sudo apt-get install之前，需要使用backport ppa来获取gstreamer的1.0版本：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs plain">sudo add-apt-repository ppa:gstreamer-developers/ppa<br>sudo apt-get update<br></code></pre></td></tr></table></figure>
+<p>接下来就是安装 Jansson 库开发包（2.7 或更高版本），用于将结果编码为 JSON：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">sudo apt-get install libjansson-dev<br></code></pre></td></tr></table></figure>
+<p>接下来就是编译安装gst-kaldi-nnet-online插件了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs plain">git clone https://github.com/alumae/gst­kaldi­nnet2­online.git<br>#如果无法下载就自己去github下载上传到服务器<br>cd gst-kaldi-nnet2-online/src<br>KALDI_ROOT=/path/of/kaldi-trunk make depend<br>KALDI_ROOT=/path/of/kaldi-trunk make<br>#编译指定kaldi的根目录<br></code></pre></td></tr></table></figure>
+<p>整个编译如果没有出现错误，那么应该会在src目录下产生libgstkaldinnet2onlinedecoder.so<br><img src="/../images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/image%20(7).png" srcset="/img/loading.gif" lazyload alt="image (7)"></p>
+<p>设置环境变量</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs plain">vim ~/.bashrc<br>#按GG到最后一行插入下面这行命令<br>export GST_PLUGIN_PATH=your gst­kaldi­nnet2­online installation directory/src<br></code></pre></td></tr></table></figure>
+<p>测试GStreamer 是否可以访问插件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">GST_PLUGIN_PATH=. gst-inspect-1.0 kaldinnet2onlinedecoder<br></code></pre></td></tr></table></figure>
+<p>输出应列出所有插件属性及其默认值：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs plain">Factory Details:<br>  Rank                     none (0)<br>  Long-name                KaldiNNet2OnlineDecoder<br>  Klass                    Speech/Audio<br>  Description              Convert speech to text<br>[...]<br>  name                : The name of the object<br>                        flags: readable, writable<br>                        String. Default: &quot;kaldinnet2onlinedecoder0&quot;<br>  parent              : The parent of the object<br>                        flags: readable, writable<br>                        Object of type &quot;GstObject&quot;<br>  silent              : Silence the decoder<br>                        flags: readable, writable<br>                        Boolean. Default: false<br>  model               : Filename of the acoustic model<br>                        flags: readable, writable<br>                        String. Default: &quot;models/final.mdl&quot;<br>[...]<br>  max-nnet-batch-size : Maximum batch size we use in neural-network decodable object, in cases where we are not constrained by currently available frames (this will rarely make a difference)<br>                        flags: readable, writable<br>                        Integer. Range: -2147483648 - 2147483647 Default: 256<br><br>Element Signals:<br>  &quot;partial-result&quot; :  void user_function (GstElement* object,<br>                                          gchararray arg0,<br>                                          gpointer user_data);<br>  &quot;final-result&quot; :  void user_function (GstElement* object,<br>                                        gchararray arg0,<br>                                        gpointer user_data);<br></code></pre></td></tr></table></figure>
+<h4 id="2-测试语音识别系统"><a href="#2-测试语音识别系统" class="headerlink" title="2.测试语音识别系统"></a>2.测试语音识别系统</h4><p>安装完gst-kaldi-nnet-online插件后，配合kaldi语音识别工具箱，就可以实现实时语音识别了，在demo提供了两个案例，下面将详细介绍这两个案例。</p>
+<p>1.案例一</p>
+<p>首先要下载基于DNN的英语模型。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs plain">cd demo<br>./prepare-models.sh<br></code></pre></td></tr></table></figure>
+<p>将会下载三个文件夹models、conf、ivector_extractor：<br>![image (8)](..&#x2F;images&#x2F;基于kaldi-GStreamer搭建web版实时语音识别系统&#x2F;image (8).png)</p>
+<p><img src="/../images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/IMG_20220404_105214020.jpg" srcset="/img/loading.gif" lazyload alt="IMG_20220404_105214020"></p>
+<p><img src="/../images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/image%20(9).png" srcset="/img/loading.gif" lazyload alt="image (9)"></p>
+<p>有了以上文件后，直接运行transcribe­audio.sh这个脚本：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">./transcribe-audio.sh dr_strangelove.mp3<br></code></pre></td></tr></table></figure>
+<p>得到以下结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs plain">LOG ([5.5.201~1-36f6d]:ComputeDerivedVars():ivector-extractor.cc:183) Computing derived variables for iVector extractor<br>LOG ([5.5.201~1-36f6d]:ComputeDerivedVars():ivector-extractor.cc:204) Done.<br>huh i hello this is hello dimitri listen i i can&#x27;t hear too well do you support you could turn the music down just a little<br>ha ha that&#x27;s much better yet not yet<br>...<br></code></pre></td></tr></table></figure>
+<p>查看transcribe-audio.sh可以看出怎么配置gst-kaldi-nnet2-online,因为后面­kaldi-gstreamer-­server会涉及到，以下是该脚本核心配置：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs plain">GST_PLUGIN_PATH=../src gst-launch-1.0 --gst-debug=&quot;&quot; -q filesrc location=$audio ! decodebin ! audioconvert ! audioresample ! \<br>kaldinnet2onlinedecoder \<br>  use-threaded-decoder=true \<br>  model=models/final.mdl \<br>  fst=models/HCLG.fst \<br>  word-syms=models/words.txt \<br>  phone-syms=models/phones.txt \<br>  word-boundary-file=models/word_boundary.int \<br>  num-nbest=3 \<br>  num-phone-alignment=3 \<br>  do-phone-alignment=true \<br>  feature-type=mfcc \<br>  mfcc-config=conf/mfcc.conf \<br>  ivector-extraction-config=conf/ivector_extractor.fixed.conf \<br>  max-active=7000 \<br>  beam=11.0 \<br>  lattice-beam=5.0 \<br>  do-endpointing=true \<br>  endpoint-silence-phones=&quot;1:2:3:4:5:6:7:8:9:10&quot; \<br>  chunk-length-in-secs=0.2 \<br>! filesink location=/dev/stdout buffer-mode=2<br></code></pre></td></tr></table></figure>
+<p>小声哔哔1：在运行这步的时候出错了</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs plain">INTEL MKL ERROR: /opt/intel/mkl/lib/intel64/libmkl_avx2.so: undefined symbol: mkl_sparse_optimize_bsr_trsm_i8.<br>Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.<br></code></pre></td></tr></table></figure>
+<p>出现上述错误貌似是MKL没有安装好，但是kaldi我能正常运行，我经过下述操作解决了该问题</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs plain">cd ~/.bashrc<br>#(GG)跳到最后一行<br>export LD_PRELOAD=/opt/intel/mkl/lib/intel64/libmkl_def.so:/opt/intel/mkl/lib/intel64/libmkl_avx2.so:/opt/intel/mkl/lib/intel64/libmkl_core.so:/opt/intel/mkl/lib/intel64/libmkl_intel_lp64.so:/opt/intel/mkl/lib/intel64/libmkl_intel_thread.so:/opt/intel/lib/intel64_lin/libiomp5.so:/opt/intel/mkl/lib/intel64/libmkl_sequential.so<br>#本来只要添加两个，但是后面还有同类错误，所有全部添加了<br></code></pre></td></tr></table></figure>
+<p>小声哔哔2：解决第一个问题后又出现问题</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs plain">(base) ubuntu@VM-4-17-ubuntu:~/gst-kaldi-nnet2-online/demo$ ./transcribe-audio.sh dr_strangelove.mp3<br>LOG ([5.5.201~1-36f6d]:ComputeDerivedVars():ivector-extractor.cc:183) Computing derived variables for iVector extractor<br>LOG ([5.5.201~1-36f6d]:ComputeDerivedVars():ivector-extractor.cc:204) Done.<br>ERROR: from element /GstPipeline:pipeline0/GstDecodeBin:decodebin0: Your GStreamer installation is missing a plug-in.<br>Additional debug info:<br>gstdecodebin2.c(4640): gst_decode_bin_expose (): /GstPipeline:pipeline0/GstDecodeBin:decodebin0:<br>no suitable plugins found:<br>Missing decoder: ID3 tag (application/x-id3)<br><br>ERROR: pipeline doesn&#x27;t want to preroll.<br></code></pre></td></tr></table></figure>
+<p>当时查了很多资料无法解决该问题，因为装了anaconda3，当时是在base环境下，后面conda deactivate该问题消失。<br>2.案例二</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">python2 gui-demo.py<br></code></pre></td></tr></table></figure>
+<p>运行这个基本需要用python2，运行完成后将会弹出一个小框框，点击Speak按钮后开始实时语音识别。<br>在运行这个引入包的时候出错了</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">from gi.repository import GObject, Gst, Gtk, Gdk<br></code></pre></td></tr></table></figure>
+<p>解决方法忘了，自己解决吧。<br>以下是对gui-demo.py程序代码，注解参考<a target="_blank" rel="noopener" href="https://github.com/mrjunjieli">李健</a>的热心分享</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br></pre></td><td class="code"><pre><code class="hljs plain">#!/usr/bin/env python<br># <br># Copyright (c) 2013 Tanel Alumae<br># Copyright (c) 2008 Carnegie Mellon University.<br>#<br># Inspired by the CMU Sphinx&#x27;s Pocketsphinx Gstreamer plugin demo (which has BSD license)<br>#<br># Licence: BSD<br><br>import sys<br>import os<br>import gi<br>gi.require_version(&#x27;Gst&#x27;, &#x27;1.0&#x27;)#<br>from gi.repository import GObject, Gst, Gtk, Gdk<br>GObject.threads_init()<br>Gdk.threads_init()<br><br>Gst.init(None)<br><br>class DemoApp(object):<br>    &quot;&quot;&quot;GStreamer/Kaldi Demo Application&quot;&quot;&quot;<br>    def __init__(self):<br>        &quot;&quot;&quot;Initialize a DemoApp object&quot;&quot;&quot;<br>        self.init_gui()<br>    def init_gui(self):<br>        &quot;&quot;&quot;Initialize the GUI components&quot;&quot;&quot;<br>        self.window = Gtk.Window()<br>        self.window.set_border_width(10)<br>        vbox = Gtk.VBox()<br>        self.text = Gtk.TextView()<br>        self.textbuf = self.text.get_buffer()<br>        self.text.set_wrap_mode(Gtk.WrapMode.WORD)<br>        vbox.pack_start(self.text, True, True, 1)<br>        self.button = Gtk.Button(&quot;Speak&quot;)<br>        self.button.connect(&#x27;clicked&#x27;, self.button_clicked)<br>        vbox.pack_start(self.button, False, False, 5)<br>        self.window.add(vbox)<br>        self.window.show_all()<br><br>    def quit(self, window):<br>        Gtk.main_quit()<br><br>    def init_gst(self):<br>        &quot;&quot;&quot;Initialize the speech components&quot;&quot;&quot;<br>        self.pulsesrc = Gst.ElementFactory.make(&quot;pulsesrc&quot;, &quot;pulsesrc&quot;)<br>        if self.pulsesrc == None:<br>            sys.exit()<br>        self.audioconvert = Gst.ElementFactory.make(&quot;audioconvert&quot;, &quot;audioconvert&quot;)<br>        self.audioresample = Gst.ElementFactory.make(&quot;audioresample&quot;, &quot;audioresample&quot;)<br>        self.asr = Gst.ElementFactory.make(&quot;kaldinnet2onlinedecoder&quot;, &quot;asr&quot;)<br>        self.fakesink = Gst.ElementFactory.make(&quot;fakesink&quot;, &quot;fakesink&quot;)<br><br>        if self.asr:<br>          model_file = &quot;models/final.mdl&quot;<br>          if not os.path.isfile(model_file):<br>              print &gt;&gt; sys.stderr, &quot;Models not downloaded? Run prepare-models.sh first!&quot;<br>              sys.exit(1)<br>          self.asr.set_property(&quot;nnet-mode&quot;,3)<br>          self.asr.set_property(&quot;fst&quot;, &quot;models/HCLG.fst&quot;)<br>          self.asr.set_property(&quot;model&quot;, model_file)<br>          self.asr.set_property(&quot;word-syms&quot;, &quot;models/words.txt&quot;)<br>          self.asr.set_property(&quot;feature-type&quot;, &quot;mfcc&quot;)<br>          self.asr.set_property(&quot;mfcc-config&quot;, &quot;conf/mfcc.conf&quot;)<br>          self.asr.set_property(&quot;ivector-extraction-config&quot;, &quot;conf/ivector_extractor.fixed.conf&quot;)<br>          self.asr.set_property(&quot;max-active&quot;, 7000)<br>          self.asr.set_property(&quot;beam&quot;, 10.0)<br>          self.asr.set_property(&quot;lattice-beam&quot;, 6.0)<br>          self.asr.set_property(&quot;do-endpointing&quot;, True)<br>          self.asr.set_property(&quot;endpoint-silence-phones&quot;, &quot;1:2:3:4:5:6:7:8:9:10&quot;)<br>          self.asr.set_property(&quot;use-threaded-decoder&quot;, False)<br>          self.asr.set_property(&quot;chunk-length-in-secs&quot;, 0.2)<br>        else:<br>          print &gt;&gt; sys.stderr, &quot;Couldn&#x27;t create the kaldinnet2onlinedecoder element. &quot;<br>          if os.environ.has_key(&quot;GST_PLUGIN_PATH&quot;):<br>            print &gt;&gt; sys.stderr, &quot;Have you compiled the Kaldi GStreamer plugin?&quot;<br>          else:<br>            print &gt;&gt; sys.stderr, &quot;You probably need to set the GST_PLUGIN_PATH envoronment variable&quot;<br>            print &gt;&gt; sys.stderr, &quot;Try running: GST_PLUGIN_PATH=../src %s&quot; % sys.argv[0]<br>          sys.exit();<br><br>        # initially silence the decoder<br>        self.asr.set_property(&quot;silent&quot;, True)<br><br>        self.pipeline = Gst.Pipeline()<br>        for element in [self.pulsesrc, self.audioconvert, self.audioresample, self.asr, self.fakesink]:<br>            self.pipeline.add(element)<br>        self.pulsesrc.link(self.audioconvert)<br>        self.audioconvert.link(self.audioresample)<br>        self.audioresample.link(self.asr)<br>        self.asr.link(self.fakesink)<br><br>        self.asr.connect(&#x27;partial-result&#x27;, self._on_partial_result)<br>        self.asr.connect(&#x27;final-result&#x27;, self._on_final_result)<br>        self.pipeline.set_state(Gst.State.PLAYING)<br><br><br><br>    def _on_partial_result(self, asr, hyp):<br>        &quot;&quot;&quot;Delete any previous selection, insert text and select it.&quot;&quot;&quot;<br>        Gdk.threads_enter()<br>        # All this stuff appears as one single action<br>        self.textbuf.begin_user_action()<br>        self.textbuf.delete_selection(True, self.text.get_editable())<br>        self.textbuf.insert_at_cursor(hyp)<br>        ins = self.textbuf.get_insert()<br>        iter = self.textbuf.get_iter_at_mark(ins)<br>        iter.backward_chars(len(hyp))<br>        self.textbuf.move_mark(ins, iter)<br>        self.textbuf.end_user_action()<br>        Gdk.threads_leave()<br><br>    def _on_final_result(self, asr, hyp):<br>        Gdk.threads_enter()<br>        &quot;&quot;&quot;Insert the final result.&quot;&quot;&quot;<br>        # All this stuff appears as one single action<br>        self.textbuf.begin_user_action()<br>        self.textbuf.delete_selection(True, self.text.get_editable())<br>        self.textbuf.insert_at_cursor(hyp)<br>        if (len(hyp) &gt; 0):<br>            self.textbuf.insert_at_cursor(&quot; &quot;)<br>        self.textbuf.end_user_action()<br>        Gdk.threads_leave()<br><br><br><br>    def button_clicked(self, button):<br>        &quot;&quot;&quot;Handle button presses.&quot;&quot;&quot;<br>        if button.get_label() == &quot;Speak&quot;:<br>            button.set_label(&quot;Stop&quot;)<br>            self.asr.set_property(&quot;silent&quot;, False)<br>        else:<br>            button.set_label(&quot;Speak&quot;)<br>            self.asr.set_property(&quot;silent&quot;, True)<br><br><br><br>if __name__ == &#x27;__main__&#x27;:<br>  app = DemoApp()<br>  Gdk.threads_enter()<br>  Gtk.main()<br>  Gdk.threads_leave()<br><br></code></pre></td></tr></table></figure>
+<h2 id="三-Kaldi­-gstreamer­-server插件"><a href="#三-Kaldi­-gstreamer­-server插件" class="headerlink" title="三.Kaldi­-gstreamer­-server插件"></a>三.Kaldi­-gstreamer­-server插件</h2><p>该插件下所有python脚本需用python2运行</p>
+<h4 id="1-安装依赖"><a href="#1-安装依赖" class="headerlink" title="1.安装依赖"></a>1.安装依赖</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs plain">#Tornado 4, 见 http://www.tornadoweb.org/en/stable/<br>#ws4py (0.3.0 .. 0.3.2)<br>#YAML<br>#JSON<br>sudo pip install tornado<br>sudo pip install ws4py==0.3.2<br>sudo pip install pyyaml<br></code></pre></td></tr></table></figure>
+<p>测试是否满足所有依赖关系<br><img src="/../images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/image%20(10).png" srcset="/img/loading.gif" lazyload alt="image (10)"></p>
+<p>没有出现no module错误表示安装正确，出错缺啥装啥</p>
+<h4 id="2-安装Kaldi­-gstreamer­-server插件"><a href="#2-安装Kaldi­-gstreamer­-server插件" class="headerlink" title="2.安装Kaldi­-gstreamer­-server插件"></a>2.安装Kaldi­-gstreamer­-server插件</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs plain">cd ~<br>#我安装在家目录下<br>git clone https://github.com/alumae/kaldi­gstreamer­server.git <br></code></pre></td></tr></table></figure>
+<p>下载完成后即可使用。<br>kaldi­-gstreamer­-server&#x2F;kaldigstserver下存放的是核心程序。整个server包含两部分，第一个是master_server.py，master_server不进行语音识别，它的作用是接收和发送数据。第二个是worker.py，worker的作用是对接收的进行语音识别并发送识别结果。使用的是websocket全双工通信。因此识别流程是“客户端”发送数据到master_server，master_server将识别任务分配给worker(当有多个客户端请求时master_server可以把不同的任务分配给不同的worker)，worker接收数据识别后将识别结果传回master_server，master_server再将识别结果返回给客户端。</p>
+<p>下面展示如何对实现识别语音识别：</p>
+<h4 id="3-运行服务器"><a href="#3-运行服务器" class="headerlink" title="3.运行服务器"></a>3.运行服务器</h4><p>首先下载训练好的nnet2模型，用作测试使用</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs plain">cd kaldi-gstreamer-server-master/test/models/<br>./download-multi_cn-nnet3.sh<br>cd ../..<br></code></pre></td></tr></table></figure>
+<p>运行master server，端口号为8888（可以自己随意设置）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">python2 kaldigstserver/master_server.py --port=8888<br></code></pre></td></tr></table></figure>
+
+<p>接下来开启worker,worker负责语音识别部分，worker可以使用两种解码器</p>
+<p>第一种：onlinegmmdecodefasterGStreamer，支持GMM,安装教程如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs plain">cd kaldi/src<br>make ext<br>cd tools<br>./install_portaudio.sh<br>vim ~/.bashrc<br>加入path/kaldi/tools/portaudio<br>sudo ldconfig<br>cd src/gst-plugin/<br>KALDI_ROOT=/path/of/kaldi make depend<br>KALDI_ROOT=/path/of/kaldi make<br>然后会在src/gst-plugin中看到libgstonlinegmmdecodefaster.so<br>export GST_PLUGIN_PATH=pathkaldi/src/gst-plugin (可以把这个目录写入~/.bashrc中)<br>gst-inspect-1.0 onlinegmmdecodefaster<br></code></pre></td></tr></table></figure>
+<p>我们使用的是第二种较新的kaldinnet2onlinedecoder插件，支持DNN模型</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">python2 kaldigstserver/worker.py -u ws://localhost:8888/worker/ws/speech -c /home/ubuntu/kaldi-gstreamer-server-master/sample_chinese_nnet3.yam<br></code></pre></td></tr></table></figure>
+<p>该-u ws:&#x2F;&#x2F;localhost:8888&#x2F;worker&#x2F;ws&#x2F;speech参数指定worker应连接到的master server所在的ip地址（本机为localhost）。并且确保worker使用的端口号与master server相同的端口（此处为8888），你可以同时启动任意数量的worker,只需要将上面命令再运行就可以了。<br>启动master server和woeker后就是客户端的使用了，客户端的示例kaldigstserver&#x2F;client.py</p>
+<p>，可以通过调用下面的命令测试安装</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">python2 kaldigstserver/client.py -r 8192 test/data/chinese_test.wav<br></code></pre></td></tr></table></figure>
+<p>没有问题的话应该会出现识别结果如下<br><img src="/../images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/image%20(11).png" srcset="/img/loading.gif" lazyload alt="image (11)"></p>
+<p>但是我当时出现问题，运行的时候出现错误并返回state1。</p>
+<p>当时是将worker.py中422行代码修改成423行的样子解决的，刚想复现这个问题发现又不报错了，神奇。</p>
+<p><img src="/../images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/image%20(12).png" srcset="/img/loading.gif" lazyload alt="image (12)"></p>
+<h2 id="四-搭建web端实时语音识别系统"><a href="#四-搭建web端实时语音识别系统" class="headerlink" title="四.搭建web端实时语音识别系统"></a>四.搭建web端实时语音识别系统</h2><p>当上述步骤完成后，我们将借助<a target="_blank" rel="noopener" href="https://github.com/sendream/dictate.js">dictate.js</a>搭建web端实时语音识别系统。</p>
+<h4 id="1-安装nginx"><a href="#1-安装nginx" class="headerlink" title="1.安装nginx"></a>1.安装nginx</h4><p>apt-get安装nginx</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">sudo apt-get install nginx<br></code></pre></td></tr></table></figure>
+<p>查看nginx是否安装成功</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">nginx -V<br></code></pre></td></tr></table></figure>
+<p>启动nginx</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">service nginx start <br></code></pre></td></tr></table></figure>
+<p>启动后，在浏览器输入ip地址，可以看到nginx的欢迎页面，表示nginx安装成功</p>
+<h4 id="2-申请域名"><a href="#2-申请域名" class="headerlink" title="2.申请域名"></a>2.申请域名</h4><p> 因为dictate.js调用麦克风需要https传输，而使用https传输不能使用ws，而是要使用wss（开始用apache配置wss差点人都去世了，后面转用nginx），配置wss需要域名(网上这么说的)。</p>
+<p>打开xx云，搜索域名，然后购买9块钱一年。因为要备案，我用了个备了案的二级域名。</p>
+<p>申请完域名后绑定服务器ip地址</p>
+<h4 id="3-申请并配置SSL"><a href="#3-申请并配置SSL" class="headerlink" title="3.申请并配置SSL"></a>3.申请并配置SSL</h4><p>打开腾讯云(别的也一样)，搜索ssl,点击“立即选购”，点击”自定义配置“，选择域名型免费版：</p>
+<p><img src="/../images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/image%20(13).png" srcset="/img/loading.gif" lazyload alt="image (13)"></p>
+<p>然后按要求填就是了。</p>
+<p>签发证书后在我的证书下载nginx版，下载完成后上传到服务器。</p>
+<p>后续步骤参考<a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1160294">这里</a></p>
+<h4 id="4-部署dictate-js"><a href="#4-部署dictate-js" class="headerlink" title="4.部署dictate.js"></a>4.部署dictate.js</h4><p><strong>假设你的域名为kfc.zym</strong></p>
+<p>上述步骤完成后，应该可以在浏览器使用<a target="_blank" rel="noopener" href="https://kfc.zym域/">https://kfc.zy</a><a target="_blank" rel="noopener" href="https://kfc.zym/">m</a>访问了</p>
+<p>将dictate.js解压放在&#x2F;var&#x2F;www&#x2F;html&#x2F;文件夹下</p>
+<p>修改&#x2F;etc&#x2F;nginx&#x2F;sites-enabled&#x2F;default</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs plain">sudo vim /etc/nginx/sites-enabled/default<br>找到loaction /&#123;&#125;修改成:<br>location / &#123;<br>  root /var/www/html;<br>  index  index.html index.htm /web/;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>此时通过<a target="_blank" rel="noopener" href="https://kfc.zym/web/demos/mob">https://kfc.zym/web/demos/mob</a><a target="_blank" rel="noopener" href="https://kfc.zym/web/demos/demo.html">.html</a><br>为了让wss能够传输，应在上述location&#x2F;{}后面添加</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs plain">location /api/ &#123;# /api/为你代理转换的字符串<br>           proxy_pass http://127.0.0.1:8888/; <br>           #127.0.0.1为master server的ip地址，8888为master server设置的端口号<br>           proxy_http_version 1.1;<br>           proxy_set_header Upgrade $http_upgrade;<br>           proxy_set_header Connection &quot;upgrade&quot;;<br>    &#125;<br></code></pre></td></tr></table></figure>
+<p>这时应该修改mob.html中的wss</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs plain">&lt;option value=&quot;wss://abc.zym:443/api/client/ws/speech|wss://abc.zym:443/api/client/ws/status&quot; selected=&quot;selected&quot;&gt;普通话&lt;/option&gt;<br>#abc.zym为你的域名，端口号为443,不能设为8888，/api/为上一步设置的跳转，nginx中是什么这里就是什么<br></code></pre></td></tr></table></figure>
+<h4 id="5-测试web端语音识别系统是否能用"><a href="#5-测试web端语音识别系统是否能用" class="headerlink" title="5.测试web端语音识别系统是否能用"></a>5.测试web端语音识别系统是否能用</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs plain">sudo service nginx restart #重启nginx<br>cd ~/kaldi-gstreamer-server-master/<br>python2 kaldigstserver/master_server.py --port=8888<br>python2 kaldigstserver/worker.py -u ws://localhost:8888/worker/ws/speech -c /home/ubuntu/kaldi-gstreamer-server-master/sample_chinese_nnet3.yaml<br></code></pre></td></tr></table></figure>
+<p>在浏览器进入<a target="_blank" rel="noopener" href="https://kfc.zym/web/demos/mob.html">https://kfc.zym/web/demos/mob.html</a><br>进行测试，如果能实时识别就说明成功了</p>
+<h4 id="6-自己训练的模型部署"><a href="#6-自己训练的模型部署" class="headerlink" title="6.自己训练的模型部署"></a>6.自己训练的模型部署</h4><p>参考下面文件夹所需配置</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">kaldi-gstreamer-server-master/test/models/chinese/multi_cn_chain_sp_online<br></code></pre></td></tr></table></figure>
+<p>仿照下面yaml填写自己的yaml</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">kaldi-gstreamer-server-master/sample_chinese_nnet3.yaml<br></code></pre></td></tr></table></figure>
+<p>如果只是使用了的mfcc，则没有大的变化<br>但是如果使用了音高则需要在yaml中添加pitch</p>
+<p>以下为我的yaml</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><code class="hljs plain"># You have to download multi_cn &quot;online nnet3&quot; chain model in order to use this sample<br># Run download-multi_cn-nnet3.sh in &#x27;test/models&#x27; to download them.<br>use-nnet2: True<br>decoder:<br>    # All the properties nested here correspond to the kaldinnet2onlinedecoder GStreamer plugin properties.<br>    # Use gst-inspect-1.0 ./libgstkaldionline2.so kaldinnet2onlinedecoder to discover the available properties<br>    nnet-mode : 3<br>    use-threaded-decoder:  true<br>    add-pitch: true<br>    model : /home/ubuntu/tibetan_lasha/final.mdl<br>    word-syms : /home/ubuntu/tibetan_lasha/words.txt<br>    fst : /home/ubuntu/tibetan_lasha/HCLG.fst<br>    mfcc-config : /home/ubuntu/tibetan_lasha/conf/mfcc.conf<br>    online-pitch-config: /home/ubuntu/tibetan_lasha/conf/pitch.conf<br>    ivector-extraction-config : /home/ubuntu/tibetan_lasha/conf/ivector_extractor.conf<br>    max-active: 7000<br>    beam: 15.0<br>    lattice-beam: 8.0<br>    acoustic-scale: 0.1<br>    do-endpointing : true<br>    endpoint-silence-phones : &quot;1:2:3:4:5:6:7:8:9:10:11:12:13:14:15&quot;<br>    traceback-period-in-secs: 0.25<br>    chunk-length-in-secs: 0.25<br>    num-nbest: 1<br>out-dir: tmp<br>use-vad: False<br>silence-timeout: 10<br><br># Just a sample post-processor that appends &quot;.&quot; to the hypothesis<br>post-processor: perl -npe &#x27;BEGIN &#123;use IO::Handle; STDOUT-&gt;autoflush(1);&#125; sleep(1); s/(.*)/\1./;&#x27;<br><br>#post-processor: (while read LINE; do echo $LINE; done)<br><br># A sample full post processor that add a confidence score to 1-best hyp and deletes other n-best hyps<br>#full-post-processor: ./sample_full_post_processor.py<br><br>logging:<br>    version : 1<br>    disable_existing_loggers: False<br>    formatters:<br>        simpleFormater:<br>            format: &#x27;%(asctime)s - %(levelname)7s: %(name)10s: %(message)s&#x27;<br>            datefmt: &#x27;%Y-%m-%d %H:%M:%S&#x27;<br>    handlers:<br>        console:<br>            class: logging.StreamHandler<br>            formatter: simpleFormater<br>            level: DEBUG<br>    root:<br>        level: DEBUG<br>        handlers: [console]<br></code></pre></td></tr></table></figure>
+<h2 id="五-展示效果"><a href="#五-展示效果" class="headerlink" title="五.展示效果"></a>五.展示效果</h2><p>已经实现效果展示，可点击<a target="_blank" rel="noopener" href="https://csl.cqspclsm.com/nmu/csl/mob_asr.html">这里</a>进行测试</p>
+<p><img src="/../images/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/image%20(14).png" srcset="/img/loading.gif" lazyload alt="image (14)"></p>
+<p>感谢“克维斯利姆·德里奥”和”奥雷里亚诺上校”的插图</p>
+
+            </div>
+            <hr>
+            <div>
+              <div class="post-metas mb-3">
+                
+                  <div class="post-meta mr-3">
+                    <i class="iconfont icon-category"></i>
+                    
+                      <a class="hover-with-bg" href="/categories/kaldi/">kaldi</a>
+                    
+                  </div>
+                
+                
+                  <div class="post-meta">
+                    <i class="iconfont icon-tags"></i>
+                    
+                      <a class="hover-with-bg" href="/tags/kaldi/">kaldi</a>
+                    
+                      <a class="hover-with-bg" href="/tags/GStreamer/">GStreamer</a>
+                    
+                      <a class="hover-with-bg" href="/tags/%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/">语音识别系统</a>
+                    
+                  </div>
+                
+              </div>
+              
+                <p class="note note-warning">
+                  
+                    本博客所有文章除特别声明外，均采用 <a target="_blank" href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh" rel="nofollow noopener noopener">CC BY-SA 4.0 协议</a> ，转载请注明出处！
+                  
+                </p>
+              
+              
+                <div class="post-prevnext">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2022/04/14/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">kaldi学习笔记（五）特征提取</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2022/04/13/ESPnet%E5%AE%89%E8%A3%85/">
+                        <span class="hidden-mobile">ESPnet安装</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+              <!-- Comments -->
+              <article class="comments" id="comments" lazyload>
+                
+                  
+                
+                
+  <div id="valine"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#valine', function() {
+      Fluid.utils.createScript('https://cdn.jsdelivr.net/npm/valine@1/dist/Valine.min.js', function() {
+        var options = Object.assign(
+          {"appId":"sJPjYojliLGzfLXyQBqHthU2-gzGzoHsz","appKey":"4t0n7YVksQWvQmy0vANUXm1C","path":"window.location.pathname","placeholder":"吐槽","avatar":"retro","meta":["nick","mail","link"],"requiredFields":[],"pageSize":10,"lang":"zh-CN","highlight":false,"recordIP":false,"serverURLs":"","emojiCDN":null,"emojiMaps":null,"enableQQ":false},
+          {
+            el: "#valine",
+            path: window.location.pathname
+          }
+        )
+        new Valine(options);
+        Fluid.utils.waitElementVisible('#valine .vcontent', () => {
+          Fluid.plugins.initFancyBox('#valine .vcontent img:not(.vemoji)');
+        })
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+              </article>
+            
+          </article>
+        </div>
+      </div>
+    </div>
+    
+      <div class="d-none d-lg-block col-lg-2 toc-container" id="toc-ctn">
+        <div id="toc">
+  <p class="toc-header"><i class="iconfont icon-list"></i>&nbsp;目录</p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+      </div>
+    
+  </div>
+</div>
+
+<!-- Custom -->
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v"
+                 for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+
+    
+  </main>
+
+  <footer class="text-center mt-5 py-3">
+  <div class="footer-content">
+     <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+  </div>
+  
+  <div class="statistics">
+    
+    
+
+    
+      
+        <!-- 不蒜子统计PV -->
+        <span id="busuanzi_container_site_pv" style="display: none">
+            总访问量 
+            <span id="busuanzi_value_site_pv"></span>
+             次
+          </span>
+      
+      
+        <!-- 不蒜子统计UV -->
+        <span id="busuanzi_container_site_uv" style="display: none">
+            总访客数 
+            <span id="busuanzi_value_site_uv"></span>
+             人
+          </span>
+      
+    
+  </div>
+
+
+  
+
+  
+</footer>
+
+
+  <!-- SCRIPTS -->
+  
+  <script  src="https://cdn.jsdelivr.net/npm/nprogress@0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nprogress@0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js" ></script>
+<script  src="https://cdn.jsdelivr.net/npm/bootstrap@4/dist/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+<!-- Plugins -->
+
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+  
+
+
+
+  
+    <script  src="https://cdn.jsdelivr.net/npm/tocbot@4/dist/tocbot.min.js" ></script>
+  
+  
+    <script  src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3/dist/jquery.fancybox.min.js" ></script>
+  
+  
+    <script  src="https://cdn.jsdelivr.net/npm/anchor-js@4/anchor.min.js" ></script>
+  
+  
+    <script defer src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js" ></script>
+  
+
+
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/typed.js@2/lib/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var title = document.getElementById('subtitle').title;
+      
+        typing(title);
+      
+    })(window, document);
+  </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- 主题的启动项 保持在最底部 -->
+<script  src="/js/boot.js" ></script>
+
+
+</body>
+</html>

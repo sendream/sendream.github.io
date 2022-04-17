@@ -1,0 +1,558 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/favicon.png">
+  <link rel="icon" href="/img/favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="John Doe">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="原理语音识别的第一步就是特征提取了，本文主要讲述如何根据音频信号提取MFCC和FBank特征（还有PLP，做孤立词识别用过，但没深究），这两种特征也是目前语音识别中使用最广泛的特征了。目前还有wav2vec也可以做特征提取，在无监督语音识别效果不错。 语音产生的过程：肺部呼出气体，然后通过声门的开启与闭合产生的周期信号，再通过声道产生声音，因为声道的不同，产生的声音也不同，比如拼音a、o、zi，三">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kaldi学习笔记（五）特征提取">
+<meta property="og:url" content="http://example.com/2022/04/14/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/index.html">
+<meta property="og:site_name" content="李森严的博客">
+<meta property="og:description" content="原理语音识别的第一步就是特征提取了，本文主要讲述如何根据音频信号提取MFCC和FBank特征（还有PLP，做孤立词识别用过，但没深究），这两种特征也是目前语音识别中使用最广泛的特征了。目前还有wav2vec也可以做特征提取，在无监督语音识别效果不错。 语音产生的过程：肺部呼出气体，然后通过声门的开启与闭合产生的周期信号，再通过声道产生声音，因为声道的不同，产生的声音也不同，比如拼音a、o、zi，三">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/2020_06_11_21_39_l6gHLo8NUjVt2iP.jpg">
+<meta property="og:image" content="http://example.com/images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/20191023222025495.png">
+<meta property="og:image" content="http://example.com/images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/2020_06_11_21_40_mel.png">
+<meta property="og:image" content="http://example.com/images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/2020_06_11_21_41_image-20200607174357596.png">
+<meta property="og:image" content="http://example.com/images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/image%20(15).png">
+<meta property="article:published_time" content="2022-04-14T13:29:16.000Z">
+<meta property="article:modified_time" content="2022-04-16T04:36:07.860Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="kaldi">
+<meta property="article:tag" content="mfcc">
+<meta property="article:tag" content="特征提取">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="http://example.com/images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/2020_06_11_21_39_l6gHLo8NUjVt2iP.jpg">
+  
+  
+  <title>kaldi学习笔记（五）特征提取 - 李森严的博客</title>
+
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4/dist/css/bootstrap.min.css" />
+
+
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@4/github-markdown.min.css" />
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hint.css@2/hint.min.css" />
+
+  
+    
+    
+      
+      <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@10/styles/github-gist.min.css" />
+    
+  
+
+  
+    <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3/dist/jquery.fancybox.min.css" />
+  
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_ba1fz6golrf.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+<!-- 自定义样式保持在最底部 -->
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    var CONFIG = {"hostname":"example.com","root":"/","version":"1.8.14","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"right","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"copy_btn":true,"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"baidu":null,"google":null,"gtag":null,"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":"sJPjYojliLGzfLXyQBqHthU2-gzGzoHsz","app_key":"4t0n7YVksQWvQmy0vANUXm1C","server_url":"https://sjpjyojl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml"};
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+<meta name="generator" content="Hexo 6.1.0"></head>
+
+
+<body>
+  <header style="height: 70vh;">
+    <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>lsyan&#39;s blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                首页
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                归档
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                分类
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                标签
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                关于
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              &nbsp;<i class="iconfont icon-search"></i>&nbsp;
+            </a>
+          </li>
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">&nbsp;<i
+                class="iconfont icon-dark" id="color-toggle-icon"></i>&nbsp;</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+    <div class="banner" id="banner" parallax=true
+         style="background: url('/../images/%E5%BE%B7%E8%8A%99%E6%96%87%E7%AB%A0%E5%9B%BE%E7%89%87%E5%BA%93/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20220414103634.jpg') no-repeat center center;
+           background-size: cover;">
+      <div class="full-bg-img">
+        <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+          <div class="page-header text-center fade-in-up">
+            <span class="h2" id="subtitle" title="kaldi学习笔记（五）特征提取">
+              
+            </span>
+
+            
+              <div class="mt-3">
+  
+  
+    <span class="post-meta">
+      <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+      <time datetime="2022-04-14 21:29" pubdate>
+        2022年4月14日 晚上
+      </time>
+    </span>
+  
+</div>
+
+<div class="mt-1">
+  
+    <span class="post-meta mr-2">
+      <i class="iconfont icon-chart"></i>
+      3.8k 字
+    </span>
+  
+
+  
+    <span class="post-meta mr-2">
+      <i class="iconfont icon-clock-fill"></i>
+      
+      
+      32 分钟
+    </span>
+  
+
+  
+  
+</div>
+
+            
+          </div>
+
+          
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="d-none d-lg-block col-lg-2"></div>
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div class="py-5" id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">kaldi学习笔记（五）特征提取</h1>
+            
+            <div class="markdown-body">
+              <h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><p>语音识别的第一步就是特征提取了，本文主要讲述如何根据音频信号提取MFCC和FBank特征（还有PLP，做孤立词识别用过，但没深究），这两种特征也是目前语音识别中使用最广泛的特征了。目前还有wav2vec也可以做特征提取，在无监督语音识别效果不错。</p>
+<p>语音产生的过程：肺部呼出气体，然后通过声门的开启与闭合产生的周期信号，再通过声道产生声音，因为声道的不同，产生的声音也不同，比如拼音a、o、zi，三个声韵母，你会发现你的口型和牙齿的变化是不同的（可以看看<a target="_blank" rel="noopener" href="http://ocw.aca.ntu.edu.tw/ntu-ocw/ocw/cou/104S204/2">台大李琳山老师</a>的课）。而人类的语音信号大部分是在10000Hz以下，我们常使用的麦克风进行音频录制的采样率为16000Hz，一个采样点使用16bit来存储。</p>
+<h3 id="MFCC特征提取步骤"><a href="#MFCC特征提取步骤" class="headerlink" title="MFCC特征提取步骤"></a>MFCC特征提取步骤</h3><p><img src="/../images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/2020_06_11_21_39_l6gHLo8NUjVt2iP.jpg" srcset="/img/loading.gif" lazyload alt="2020_06_11_21_39_l6gHLo8NUjVt2iP"></p>
+<h4 id="1-预加重"><a href="#1-预加重" class="headerlink" title="1.预加重"></a>1.预加重</h4><p>将语音信号通过一个预加重函数：</p>
+<p>$$H(Z)&#x3D;1-\mu z^{-1}$$,式中u的值介于0.9-1.0之间，通常取0.97。预加重的目的是提升高频部分，使信号的频谱变得平坦，保持在低频到高频的整个频带中，能用同样的信噪比求频谱。这是因为很多声音在高频的地方会变得很微弱，通过这个方法，这只是实验性的方法，因为worker，所有大家都用。</p>
+<h4 id="2-分帧"><a href="#2-分帧" class="headerlink" title="2.分帧"></a>2.分帧</h4><p>语音信号是一个非稳态、时变的信号，但是在极短的时间范围内，我们可以把语音认为是一个稳态、时不变的信号。这个极短时间范围通常分为20-40ms的帧，一般分成25ms为一帧。为了保证帧与帧之间平滑过渡，保持其连续性，分帧一般会让相邻的帧有重叠部分，因此每次只会移动10ms(而不是25ms)，这10ms我们称之为帧移。对于语音信号的采样频率是16kHz的，那么一帧就有16000*25&#x2F;1000&#x3D;400个样本点，帧移有16000 * 0.01 &#x3D; 160 个样本点，如果最后一帧不够400个样本点，我们一般在后面补0。对于一段语音如果有n个点，可以得到(n-400)&#x2F;160+1帧数据。</p>
+<h4 id="3-加窗"><a href="#3-加窗" class="headerlink" title="3.加窗"></a>3.加窗</h4><p>首先一个基础：时域的乘积等于频域的卷积</p>
+<p>因为后面要做FFT，我们不可能对所有时间做FFT，只能对短时长度的信号做FFT，因此我们只能在整段语音上截取一小段进行FFT。我们人为已经对这个无限长序列加了一个矩形窗，也就是这个无限长序列的频谱已经和一个矩形窗函数的频谱做了卷积了。这时候卷积可不是相乘，自然输出的这个有限长序列输出的频谱就变形了。</p>
+<p>我们对一段信号进行分帧处理的时候，频谱泄漏会影响分析，所以才会用到窗函数，而经过窗函数处理的时域信号，其初始点和结束点的时域振幅都接近0。</p>
+<p>在语音识别上主要用的是”汉明窗“。它能使信号在窗边界的值近似为 0，从而使得信号趋近于是一个周期信号，一个完整的有限长周期函数可以代表一个无限长周期函数，因此周期函数不会造成频谱泄露，该窗函数如下：$$w[n]&#x3D;0.54-0.46cos(\frac{2\pi n}{L}); 0\leq n \leq L-1$$，其他情况等于0。</p>
+<h4 id="注意：以下为对每一个窗口进行的操作"><a href="#注意：以下为对每一个窗口进行的操作" class="headerlink" title="注意：以下为对每一个窗口进行的操作"></a>注意：以下为对每一个窗口进行的操作</h4><h4 id="4-离散傅里叶变换"><a href="#4-离散傅里叶变换" class="headerlink" title="4.离散傅里叶变换"></a>4.离散傅里叶变换</h4><p>DFT,将每个窗口内的数据从时域信号转为频域信号。DFT 的变换公式如下：</p>
+<p>$$X(m)&#x3D;\sum_{n&#x3D;0}^{N-1}{x(n)h(n)e^{-j2\pi nm&#x2F;N}}$$</p>
+<p>x(n) 是窗口中每个数据点的值，h(n)是一个数据点的窗函数，m是DFT的长度，e 是自然底数。有了X[m]我们就能估计功率谱：$$P_i(k)&#x3D;\frac{1}{N}|X_i(m)|^2$$</p>
+<p>上式得到的是周期图的功率谱估计。通常我们会进行512点的DFT,并且因为对称性只保留前257（第一个点是直流分量）个系数。在实际中使用的一般是快速傅里叶变换（FFT，大家可以自行了解）。</p>
+<h4 id="5-梅尔滤波器组"><a href="#5-梅尔滤波器组" class="headerlink" title="5.梅尔滤波器组"></a>5.梅尔滤波器组</h4><p>这个办法就是想要学人的耳朵怎么听语音的，研究人员发现听觉神经单元听到的是一堆频率而不是一个频率，而听觉神经是会听的重叠的，还有一个问题就是人耳对不同频率语音有不同的感知能力：对低频部分，与频率成线性关系；对高频部分，频率间隔越变越大。</p>
+<p>因此研究人员想的一个办法就是用三角形滤波器来代替人耳神经单元，类似如下图所示：</p>
+<p><img src="/../images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/20191023222025495.png" srcset="/img/loading.gif" lazyload alt="20191023222025495"></p>
+<p>这是一组大约20-40（通常26）个三角滤波器组，它会对上一步得到的周期图的功率谱估计进行滤波，每个滤波器组由26个(滤波器)长度为257的向量组成，每个滤波器的257个值中大部分都是0，只有对于需要采集的频率范围才是非零。输入的257点的信号会通过26个滤波器，我们会计算通过每个滤波器的信号的能量。</p>
+<p>对于重叠部分的问题，解决办法是将两个三角形按上图所示叠放在一起，上一个滤波器的中间频率作为下一个滤波器的开始频率。</p>
+<p>对于不同频率感知不同，就是将频率Hz转换成Mel频率来解决，转换公式如下：</p>
+<p>$$m&#x3D;2595log_{10}(1+\frac{f}{700})$$</p>
+<p><img src="/../images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/2020_06_11_21_40_mel.png" srcset="/img/loading.gif" lazyload alt="2020_06_11_21_40_mel"></p>
+<p>上图为Hz频率到Mel频率的转换。因此越到后面一个Mel滤波器对应的Hz频率越大，特性就是低频密，高频疏。</p>
+<h4 id="6-能量取log"><a href="#6-能量取log" class="headerlink" title="6.能量取log"></a>6.能量取log</h4><p>字面意思，如果是40个滤波器，就对40个能量取log。也就得到了40维的Fbank特征。</p>
+<p>为什么要取log:将在下一节介绍。</p>
+<h4 id="7-IDFT"><a href="#7-IDFT" class="headerlink" title="7.IDFT"></a>7.IDFT</h4><p>FBank 特征的频谱图大概长下面这个样子，图中四个红点表示的是共振峰，是频谱图的主要频率，在语音识别中，根据共振峰来区分不同的音素（phone），所以我们可以把图中红线表示的特征提取出来就行，移除蓝色的影响部分。其中红色平滑曲线将各个共振峰连接起来，这条红线，称为谱包络（Spectral Envelope），蓝色上下震荡比较多的线条称为谱细节（Spectral details）。</p>
+<p><img src="/../images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/2020_06_11_21_41_image-20200607174357596.png" srcset="/img/loading.gif" lazyload alt="2020_06_11_21_41_image-20200607174357596"></p>
+<p>首先，开头我们就讲了语音的产生可以理解为呼出的气通过声带振动E(w)，然后经过腔体（包括舌头、牙齿等等）H(w)，形成各种不同的发音X(w)。其中声带产生的频谱E(w)是很简单的，主要就是腔体决定着各个音素的频谱。所以如果我们知道腔体的信息，就可以准确的对音素进行描述。显然的，腔体的形状对应着上面图中的谱包络(红色的线)，揭示了共振峰的走向。</p>
+<p>现在我们希望获得这个红色的线，但是这个红色的线被蓝色的线干扰的很厉害，我们要怎么把蓝色的线除掉，要怎么去掉呢：</p>
+<p>在时间轴上我们的语音可以看作：$$X[w]&#x3D;E[w]*H[w]$$</p>
+<p>将原来的语音经过傅里叶变换得到的频谱：$$X[w]&#x3D;E[w]H[w]$$</p>
+<p>因为phase信息对语音识别来说没用，因此只考虑幅度就是：$$|X[w]|&#x3D;|E[w]||H[w]|$$</p>
+<p>两边取log：$$log|X[w]|&#x3D;log|E[w]|+log|H[w]|$$</p>
+<p>再在两边取逆傅里叶变换得到：$$X[w]&#x3D;E[w]+H[w]$$</p>
+<p>log运算是为了分别包络和细节，包络代表音色，细节代表音高，显然语音识别就是为了识别音色。另外，人的感知与频率的对数成正比，正好使用log模拟，这就是取log的原因。</p>
+<p>尽管现在E[w]+H[w]也就是包络和细节还是混在一起的，但是现在有一点不同，因为包络变化很慢，而细节变化很快，因此包络几乎在前面，而细节几乎再后面，所以我们如果在一个地方切开它，几乎就可以得到包络了，如下图所示。</p>
+<p><img src="/../images/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%885%EF%BC%89%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/image%20(15).png" srcset="/img/loading.gif" lazyload alt="image (15)"></p>
+<p>一般来说IDFT用的是DCT(离散余弦变换)，因为DCT具有去相关性，这时我们得到40维倒谱系数，最后我们保留2-13这个12维，这12维就叫MFCC特征。对功率谱再做DCT的目的就是为了提取信号的包络。</p>
+<h4 id="8-Deltas和Delta-Deltas特征"><a href="#8-Deltas和Delta-Deltas特征" class="headerlink" title="8.Deltas和Delta-Deltas特征"></a>8.Deltas和Delta-Deltas特征</h4><p>Deltas和Delta-Deltas通常也叫(一阶)差分系数和二阶差分(加速度)系数。MFCC特征向量描述了一帧语音信号的功率谱的包络信息，但是语音识别也需要帧之间的动态变化信息，比如MFCC随时间的轨迹，实际证明把MFCC的轨迹变化加入后会提高识别的效果。因此我们可以用当前帧前后几帧的信息来计算Delta和Delta-Delta：</p>
+<p>$$d_t&#x3D;\frac{\sum_{n&#x3D;1}^{N}{n(c_{t+n}-c_{t-n})}}{2\sum_{n&#x3D;1}^{N}{n^2}}$$</p>
+<p>上式得到的dt是Delta系数，计算第t帧的Delta需要t-N到t+N的系数，N通常是2。如果对Delta系数dt再使用上述公式就可以得到Delta-Delta系数，这样我们就可以得到3*12&#x3D;36维的特征。上面也提到过，我们通常把能量也加到12维的特征里，对能量也可以计算一阶和二阶差分，这样最终可以得到39维的MFCC特征向量。</p>
+<p>完成前面步骤后就是特征提取了，先看一下aishell脚本特征提取的代码</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><div class="code-wrapper"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></div></td><td class="code"><pre><code class="hljs plain">mfccdir=mfcc<br>for x in train dev test; do<br>  steps/make_mfcc_pitch.sh --cmd &quot;$train_cmd&quot; --nj 10 data/$x exp/make_mfcc/$x $mfccdir || exit 1;<br>  steps/compute_cmvn_stats.sh data/$x exp/make_mfcc/$x $mfccdir || exit 1;<br>  utils/fix_data_dir.sh data/$x || exit 1;<br>done<br></code></pre></td></tr></table></figure>
+<p>未完待续。。。</p>
+
+            </div>
+            <hr>
+            <div>
+              <div class="post-metas mb-3">
+                
+                  <div class="post-meta mr-3">
+                    <i class="iconfont icon-category"></i>
+                    
+                      <a class="hover-with-bg" href="/categories/kaldi/">kaldi</a>
+                    
+                  </div>
+                
+                
+                  <div class="post-meta">
+                    <i class="iconfont icon-tags"></i>
+                    
+                      <a class="hover-with-bg" href="/tags/kaldi/">kaldi</a>
+                    
+                      <a class="hover-with-bg" href="/tags/mfcc/">mfcc</a>
+                    
+                      <a class="hover-with-bg" href="/tags/%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96/">特征提取</a>
+                    
+                  </div>
+                
+              </div>
+              
+                <p class="note note-warning">
+                  
+                    本博客所有文章除特别声明外，均采用 <a target="_blank" href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh" rel="nofollow noopener noopener">CC BY-SA 4.0 协议</a> ，转载请注明出处！
+                  
+                </p>
+              
+              
+                <div class="post-prevnext">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2022/04/14/kaldi%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%88%E4%B8%89%EF%BC%89%E7%94%9F%E6%88%90L-fst/">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">kaldi学习笔记（三）生成L.fst</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2022/04/13/%E5%9F%BA%E4%BA%8Ekaldi-GStreamer%E6%90%AD%E5%BB%BAweb%E7%89%88%E5%AE%9E%E6%97%B6%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F/">
+                        <span class="hidden-mobile">基于kaldi+GStreamer搭建web版实时语音识别系统</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+              <!-- Comments -->
+              <article class="comments" id="comments" lazyload>
+                
+                  
+                
+                
+  <div id="valine"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#valine', function() {
+      Fluid.utils.createScript('https://cdn.jsdelivr.net/npm/valine@1/dist/Valine.min.js', function() {
+        var options = Object.assign(
+          {"appId":"sJPjYojliLGzfLXyQBqHthU2-gzGzoHsz","appKey":"4t0n7YVksQWvQmy0vANUXm1C","path":"window.location.pathname","placeholder":"吐槽","avatar":"retro","meta":["nick","mail","link"],"requiredFields":[],"pageSize":10,"lang":"zh-CN","highlight":false,"recordIP":false,"serverURLs":"","emojiCDN":null,"emojiMaps":null,"enableQQ":false},
+          {
+            el: "#valine",
+            path: window.location.pathname
+          }
+        )
+        new Valine(options);
+        Fluid.utils.waitElementVisible('#valine .vcontent', () => {
+          Fluid.plugins.initFancyBox('#valine .vcontent img:not(.vemoji)');
+        })
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+              </article>
+            
+          </article>
+        </div>
+      </div>
+    </div>
+    
+      <div class="d-none d-lg-block col-lg-2 toc-container" id="toc-ctn">
+        <div id="toc">
+  <p class="toc-header"><i class="iconfont icon-list"></i>&nbsp;目录</p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+      </div>
+    
+  </div>
+</div>
+
+<!-- Custom -->
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v"
+                 for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+
+    
+  </main>
+
+  <footer class="text-center mt-5 py-3">
+  <div class="footer-content">
+     <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+  </div>
+  
+  <div class="statistics">
+    
+    
+
+    
+      
+        <!-- 不蒜子统计PV -->
+        <span id="busuanzi_container_site_pv" style="display: none">
+            总访问量 
+            <span id="busuanzi_value_site_pv"></span>
+             次
+          </span>
+      
+      
+        <!-- 不蒜子统计UV -->
+        <span id="busuanzi_container_site_uv" style="display: none">
+            总访客数 
+            <span id="busuanzi_value_site_uv"></span>
+             人
+          </span>
+      
+    
+  </div>
+
+
+  
+
+  
+</footer>
+
+
+  <!-- SCRIPTS -->
+  
+  <script  src="https://cdn.jsdelivr.net/npm/nprogress@0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nprogress@0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js" ></script>
+<script  src="https://cdn.jsdelivr.net/npm/bootstrap@4/dist/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+<!-- Plugins -->
+
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+  
+
+
+
+  
+    <script  src="https://cdn.jsdelivr.net/npm/tocbot@4/dist/tocbot.min.js" ></script>
+  
+  
+    <script  src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3/dist/jquery.fancybox.min.js" ></script>
+  
+  
+    <script  src="https://cdn.jsdelivr.net/npm/anchor-js@4/anchor.min.js" ></script>
+  
+  
+    <script defer src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js" ></script>
+  
+
+
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/typed.js@2/lib/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var title = document.getElementById('subtitle').title;
+      
+        typing(title);
+      
+    })(window, document);
+  </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- 主题的启动项 保持在最底部 -->
+<script  src="/js/boot.js" ></script>
+
+
+</body>
+</html>
