@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>http://example.com/2022/04/17/ESPnet%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-%E4%BA%8C-asr-train-py/</loc>
+    <lastmod>2022-04-17</lastmod>
+  </url>
+  <url>
     <loc>http://example.com/2022/04/17/ESPnet%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-%E4%B8%80-run-sh/</loc>
     <lastmod>2022-04-17</lastmod>
   </url>
