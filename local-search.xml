@@ -4,6 +4,33 @@
   
   
   <entry>
+    <title>ESPNET中fbank特征怎么用conv2D</title>
+    <link href="/2022/04/23/ESPNET%E4%B8%ADfbank%E7%89%B9%E5%BE%81%E6%80%8E%E4%B9%88%E7%94%A8conv2D/"/>
+    <url>/2022/04/23/ESPNET%E4%B8%ADfbank%E7%89%B9%E5%BE%81%E6%80%8E%E4%B9%88%E7%94%A8conv2D/</url>
+    
+    <content type="html"><![CDATA[<p>在espnet中最基本的端到端语音识别的模型rnn模型，它的编码网络由VGG和RNN组成，直觉上语音应该是一个1维的，应该是只与时间相关，但是espnet用的却是pytorch上的conv2D，让我们来看一下是怎么一回事。</p><p>下面就是espnet中两层VGG代码的定义，用了四个卷积层将channel数从1增加到128，卷积核大小为3*3，因为padding和步长都为1，所以经过卷积后大小是不会发生变化的，但是步长为2的maxpool，因此最后长和宽变为原来的1&#x2F;4。</p><p>下面我们来看一下batch&#x3D;15的语音送入VGG2L中是怎么操作的：例如原始xs_pad&#x3D;(15，882，83)，15为batch size -1，882是这15句语音中帧数最多的那个帧数，其他少于882帧的语音补零到882，83为80维fbank+3维pitch特征。</p><figure class="highlight plaintext"><table><tr><td class="gutter"><div class="code-wrapper"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></div></td><td class="code"><pre><code class="hljs plain">class VGG2L(torch.nn.Module):<br>    &quot;&quot;&quot;VGG-like module<br><br>    :param int in_channel: number of input channels<br>    &quot;&quot;&quot;<br><br>    def __init__(self, in_channel=1):<br>        super(VGG2L, self).__init__()<br>        # CNN layer (VGG motivated)<br>        self.conv1_1 = torch.nn.Conv2d(in_channel, 64, 3, stride=1,padding=1)<br>        self.conv1_2 = torch.nn.Conv2d(64, 64, 3, stride=1, padding=1)<br>        self.conv2_1 = torch.nn.Conv2d(64, 128, 3, stride=1, padding=1)<br>        self.conv2_2 = torch.nn.Conv2d(128, 128, 3, stride=1, padding=1)<br><br>        self.in_channel = in_channel<br><br>    def forward(self, xs_pad, ilens, **kwargs):<br>        &quot;&quot;&quot;VGG2L forward<br><br>        :param torch.Tensor xs_pad: batch of padded input sequences (B, Tmax, D)<br>        :param torch.Tensor ilens: batch of lengths of input sequences (B)<br>        :return: batch of padded hidden state sequences (B, Tmax // 4, 128 * D // 4)<br>        :rtype: torch.Tensor<br>        &quot;&quot;&quot;<br>        logging.debug(self.__class__.__name__ + &quot; input lengths: &quot; + str(ilens))<br><br>        # x: utt x frame x dim<br>        # xs_pad = F.pad_sequence(xs_pad)<br><br>        # x: utt x 1 (input channel num) x frame x dim<br>        xs_pad = xs_pad.view(<br>            xs_pad.size(0),<br>#15<br>            xs_pad.size(1),<br>#882<br>            self.in_channel,<br>#1<br>            xs_pad.size(2) // self.in_channel,<br>#83<br>        ).transpose(1, 2)<br>#将维度1和维度2互换位置（15，1，882，83）<br><br>        # NOTE: max_pool1d ?<br>        xs_pad = F.relu(self.conv1_1(xs_pad))<br>#（15，64，882，83）<br>        xs_pad = F.relu(self.conv1_2(xs_pad))<br>#（15，64，882，83）<br>        xs_pad = F.max_pool2d(xs_pad, 2, stride=2, ceil_mode=True)<br>#（15，64，441，42）<br><br>        xs_pad = F.relu(self.conv2_1(xs_pad))<br>#（15，128，441，42）<br>        xs_pad = F.relu(self.conv2_2(xs_pad))<br>#（15，128，441，42）<br>        xs_pad = F.max_pool2d(xs_pad, 2, stride=2, ceil_mode=True)<br>#（15，128，221，21）<br>        if torch.is_tensor(ilens):<br>            ilens = ilens.cpu().numpy()<br>        else:<br>            ilens = np.array(ilens, dtype=np.float32)<br>        ilens = np.array(np.ceil(ilens / 2), dtype=np.int64)<br>        ilens = np.array(<br>            np.ceil(np.array(ilens, dtype=np.float32) / 2), dtype=np.int64<br>        ).tolist()<br><br>        # x: utt_list of frame (remove zeropaded frames) x (input channel num x dim)<br>        xs_pad = xs_pad.transpose(1, 2)<br>#在这个时候又将维度1和2的位置交换（15，221，128，21）<br>        xs_pad = xs_pad.contiguous().view(<br>            xs_pad.size(0), xs_pad.size(1), xs_pad.size(2) * xs_pad.size(3)<br>        )<br>#（15，221，2688）我们相对于原始的特征看一下<br>#（15，882，83），相当于语音帧减少了四倍，特征维度增加了很多倍。<br>        return xs_pad, ilens, None  # no state in this layer<br></code></pre></td></tr></table></figure><p>至于为什么这么干，我觉得是随着CNN的层数越多越深，网络中参数也就越多，学习到的原始特征也就越全面，个人理解。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>espnet</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>espnet</tag>
+      
+      <tag>cnn</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>端到端语音识别模型中的LM Fusion</title>
     <link href="/2022/04/20/%E7%AB%AF%E5%88%B0%E7%AB%AF%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E6%A8%A1%E5%9E%8B%E4%B8%AD%E7%9A%84LM-Fusion/"/>
     <url>/2022/04/20/%E7%AB%AF%E5%88%B0%E7%AB%AF%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E6%A8%A1%E5%9E%8B%E4%B8%AD%E7%9A%84LM-Fusion/</url>
